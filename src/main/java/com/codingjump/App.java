@@ -1,5 +1,6 @@
 package com.codingjump;
 
+import java.awt.Dimension;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -18,17 +19,20 @@ import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.util.IOUtils;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
+import org.apache.poi.xslf.usermodel.XSLFPictureShape;
 
 public class App {
     static Options options;
 
     static String exportOption = "export";
+    static String runImportOption = "run-import";
+    static String dirOption = "dir";
 
     public static CommandLine parseArguments(String[] args) throws ParseException {
         options = new Options();
         options.addOption("e", exportOption, true, "Exports powerpoint file with given name");
-        options.addOption("d", "dir", true, "Location of directory where images are stored");
-        options.addOption("r", "run", false, "If argment present then it will execute otherwise not");
+        options.addOption("d", dirOption, true, "Location of directory where images are stored");
+        options.addOption("ri", runImportOption, false, "If argment present then it will execute otherwise not");
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd;
@@ -48,12 +52,12 @@ public class App {
         else
             outFileLocation = "output.pptx";
 
-        if (cmd.hasOption("dir"))
-            dirLocation = cmd.getOptionValue("dir");
+        if (cmd.hasOption(dirOption))
+            dirLocation = cmd.getOptionValue(dirOption);
         else
             dirLocation = "./";
 
-        if (cmd.hasOption("run"))
+        if (cmd.hasOption(runImportOption))
             run = true;
 
         if (!run) {
@@ -80,31 +84,7 @@ public class App {
                     XSLFPictureData pd = ppt.addPicture(pictureData, PictureData.PictureType.PNG);
                     var picture = slide.createPicture(pd);
                     var dimensions = slide.getSlideShow().getPageSize();
-                    var originalAnchor = picture.getAnchor();
-
-                    double h = originalAnchor.getHeight();
-                    double w = originalAnchor.getWidth();
-
-                    double mh = dimensions.getHeight();
-                    double mw = dimensions.getWidth();
-
-                    double rh = h;
-                    double rw = w;
-
-                    if (h > mh) {
-                        double p = rh;
-                        rh = mh;
-                        rw = rw * mh / p;
-                    }
-
-                    if (rw > mw) {
-                        double p = rw;
-                        rw = mw;
-                        rh = rh * mw / p;
-                    }
-
-                    originalAnchor.setFrame(0, 0, rw, rh);
-                    picture.setAnchor(originalAnchor);
+                    resizeToDimensions(picture, dimensions);
                     System.out.println("Image imported: " + file);
                 }
 
@@ -113,5 +93,33 @@ public class App {
                 System.out.println("Exported file: " + outFileLocation);
             }
         }
+    }
+
+    private static void resizeToDimensions(XSLFPictureShape picture, Dimension dimensions) {
+        var originalAnchor = picture.getAnchor();
+
+        double h = originalAnchor.getHeight();
+        double w = originalAnchor.getWidth();
+
+        double mh = dimensions.getHeight();
+        double mw = dimensions.getWidth();
+
+        double rh = h;
+        double rw = w;
+
+        if (h > mh) {
+            double p = rh;
+            rh = mh;
+            rw = rw * mh / p;
+        }
+
+        if (rw > mw) {
+            double p = rw;
+            rw = mw;
+            rh = rh * mw / p;
+        }
+
+        originalAnchor.setFrame(0, 0, rw, rh);
+        picture.setAnchor(originalAnchor);
     }
 }
