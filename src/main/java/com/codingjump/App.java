@@ -1,6 +1,5 @@
 package com.codingjump;
 
-import java.awt.geom.Rectangle2D;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -81,9 +80,31 @@ public class App {
                     XSLFPictureData pd = ppt.addPicture(pictureData, PictureData.PictureType.PNG);
                     var picture = slide.createPicture(pd);
                     var dimensions = slide.getSlideShow().getPageSize();
-                    var anchor = new Rectangle2D.Float(0f, 0f, (float) dimensions.getWidth(),
-                            (float) dimensions.getHeight());
-                    picture.setAnchor(anchor);
+                    var originalAnchor = picture.getAnchor();
+
+                    double h = originalAnchor.getHeight();
+                    double w = originalAnchor.getWidth();
+
+                    double mh = dimensions.getHeight();
+                    double mw = dimensions.getWidth();
+
+                    double rh = h;
+                    double rw = w;
+
+                    if (h > mh) {
+                        double p = rh;
+                        rh = mh;
+                        rw = rw * mh / p;
+                    }
+
+                    if (rw > mw) {
+                        double p = rw;
+                        rw = mw;
+                        rh = rh * mw / p;
+                    }
+
+                    originalAnchor.setFrame(0, 0, rw, rh);
+                    picture.setAnchor(originalAnchor);
                     System.out.println("Image imported: " + file);
                 }
 
