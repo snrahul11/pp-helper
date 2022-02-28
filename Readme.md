@@ -1,7 +1,13 @@
+To run your application
+
+```bash
+mvn package spring-boot:run
+```
+
 To compile your exe you'll need to run the below command
 
 ```bash
-mvn clean compile assembly:single
+mvn package spring-boot:repackage
 ```
 
 To run the jar file that will get generated you'll need to run the below command
@@ -10,6 +16,8 @@ To run the jar file that will get generated you'll need to run the below command
 java -jar pp-helper-1.0.jar
 java -jar ~/Projects/pp-helper/target/pp-helper-1.0.jar
 ```
+
+logging.level.root=INFO
 
 # Useful Links
 

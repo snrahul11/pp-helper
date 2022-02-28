@@ -20,8 +20,12 @@ import org.apache.poi.util.IOUtils;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
 import org.apache.poi.xslf.usermodel.XSLFPictureShape;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-public class App {
+@SpringBootApplication
+public class App implements CommandLineRunner {
     static Options options;
 
     static String exportOption = "export";
@@ -41,7 +45,40 @@ public class App {
         return cmd;
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+    }
+
+    private static void resizeToDimensions(XSLFPictureShape picture, Dimension dimensions) {
+        var originalAnchor = picture.getAnchor();
+
+        double h = originalAnchor.getHeight();
+        double w = originalAnchor.getWidth();
+
+        double mh = dimensions.getHeight();
+        double mw = dimensions.getWidth();
+
+        double rh = h;
+        double rw = w;
+
+        if (h > mh) {
+            double p = rh;
+            rh = mh;
+            rw = rw * mh / p;
+        }
+
+        if (rw > mw) {
+            double p = rw;
+            rw = mw;
+            rh = rh * mw / p;
+        }
+
+        originalAnchor.setFrame(0, 0, rw, rh);
+        picture.setAnchor(originalAnchor);
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
         var cmd = parseArguments(args);
 
         String outFileLocation;
@@ -93,33 +130,6 @@ public class App {
                 System.out.println("Exported file: " + outFileLocation);
             }
         }
-    }
 
-    private static void resizeToDimensions(XSLFPictureShape picture, Dimension dimensions) {
-        var originalAnchor = picture.getAnchor();
-
-        double h = originalAnchor.getHeight();
-        double w = originalAnchor.getWidth();
-
-        double mh = dimensions.getHeight();
-        double mw = dimensions.getWidth();
-
-        double rh = h;
-        double rw = w;
-
-        if (h > mh) {
-            double p = rh;
-            rh = mh;
-            rw = rw * mh / p;
-        }
-
-        if (rw > mw) {
-            double p = rw;
-            rw = mw;
-            rh = rh * mw / p;
-        }
-
-        originalAnchor.setFrame(0, 0, rw, rh);
-        picture.setAnchor(originalAnchor);
     }
 }
