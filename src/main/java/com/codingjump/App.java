@@ -1,6 +1,11 @@
 package com.codingjump;
 
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -14,6 +19,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.filefilter.RegexFileFilter;
@@ -34,15 +40,17 @@ public class App implements CommandLineRunner {
 
     static Options options;
 
-    static String exportOption = "export";
+    static String ppOption = "powerpoint";
     static String importImagesOption = "import-images";
+    static String exportImagesOption = "export-images";
     static String dirOption = "dir";
 
     public static CommandLine parseArguments(String[] args) throws ParseException {
         options = new Options();
-        options.addOption("e", exportOption, true, "Exports powerpoint file with given name");
+        options.addOption("pp", ppOption, true, "Process powerpoint file with given name");
         options.addOption("d", dirOption, true, "Location of directory where images are stored");
         options.addOption("ii", importImagesOption, false, "Will import images to the PPT");
+        options.addOption("ei", exportImagesOption, false, "Will export images from the PPT");
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd;
@@ -87,30 +95,67 @@ public class App implements CommandLineRunner {
     public void run(String... args) throws Exception {
         var cmd = parseArguments(args);
 
-        String outFileLocation;
+        String ppLocation;
         File dirLocation;
-        boolean importImagesFlag = false;
 
         if (cmd.hasOption(dirOption))
             dirLocation = new File(cmd.getOptionValue(dirOption));
         else
             dirLocation = new File("./");
 
-        if (cmd.hasOption(importImagesOption))
-            importImagesFlag = true;
-
-        if (cmd.hasOption(exportOption))
-            outFileLocation = cmd.getOptionValue("export") + ".pptx";
+        if (cmd.hasOption(ppOption))
+            ppLocation = cmd.getOptionValue(ppOption);
         else
-            outFileLocation = "output.pptx";
+            ppLocation = "output.pptx";
 
-        if (importImagesFlag) {
-            importImagesToNewPPT(outFileLocation, dirLocation);
+        if (cmd.hasOption(importImagesOption)) {
+            importImagesToNewPPT(ppLocation, dirLocation);
+            return;
+        } else if (cmd.hasOption(exportImagesOption)) {
+            exportImagesFromPPT(ppLocation, dirLocation);
             return;
         }
 
         HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp("pp-helper", options);
+    }
+
+    private void exportImagesFromPPT(String inFileLocation, File dirLocation)
+            throws IOException {
+        try (FileInputStream inFile = new FileInputStream(inFileLocation)) {
+            try (var ppt = new XMLSlideShow(inFile)) {
+                dirLocation.mkdirs();
+                for (var slide : ppt.getSlides()) {
+                    var dimensions = slide.getSlideShow().getPageSize();
+                    BufferedImage img = new BufferedImage(dimensions.width, dimensions.height,
+                            BufferedImage.TYPE_INT_RGB);
+                    Graphics2D graphics = img.createGraphics();
+                    graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                            RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    graphics.setRenderingHint(
+                            RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+                    graphics.setRenderingHint(
+                            RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    graphics.setRenderingHint(
+                            RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+                    graphics.setRenderingHint(
+                            RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                    graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                            RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
+                    // clear the drawing area
+                    graphics.setPaint(Color.white);
+                    graphics.fill(new Rectangle2D.Float(0, 0, dimensions.width, dimensions.height));
+
+                    // render
+                    slide.draw(graphics);
+                    String outFile = FilenameUtils.concat(dirLocation.getAbsolutePath(),
+                            slide.getSlideName() + ".jpeg");
+                    FileOutputStream out = new FileOutputStream(outFile);
+                    javax.imageio.ImageIO.write(img, "jpeg", out);
+                    logger.info("Exported JPEG file: {}", outFile);
+                }
+            }
+        }
     }
 
     private void importImagesToNewPPT(String outFileLocation, File dirLocation)
@@ -136,7 +181,6 @@ public class App implements CommandLineRunner {
                 ppt.write(outFile);
                 logger.info("Exported file: {}", outFileLocation);
             }
-
         }
     }
 }
