@@ -4,6 +4,7 @@ import java.awt.Dimension;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Collection;
 
 import org.apache.commons.cli.CommandLine;
@@ -13,30 +14,35 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.apache.poi.sl.usermodel.PictureData;
-import org.apache.poi.util.IOUtils;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
 import org.apache.poi.xslf.usermodel.XSLFPictureShape;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class App implements CommandLineRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(App.class);
+
     static Options options;
 
     static String exportOption = "export";
-    static String runImportOption = "run-import";
+    static String importImagesOption = "import-images";
     static String dirOption = "dir";
 
     public static CommandLine parseArguments(String[] args) throws ParseException {
         options = new Options();
         options.addOption("e", exportOption, true, "Exports powerpoint file with given name");
         options.addOption("d", dirOption, true, "Location of directory where images are stored");
-        options.addOption("ri", runImportOption, false, "If argment present then it will execute otherwise not");
+        options.addOption("ii", importImagesOption, false, "Will import images to the PPT");
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd;
@@ -82,35 +88,37 @@ public class App implements CommandLineRunner {
         var cmd = parseArguments(args);
 
         String outFileLocation;
-        String dirLocation;
-        boolean run = false;
+        File dirLocation;
+        boolean importImagesFlag = false;
+
+        if (cmd.hasOption(dirOption))
+            dirLocation = new File(cmd.getOptionValue(dirOption));
+        else
+            dirLocation = new File("./");
+
+        if (cmd.hasOption(importImagesOption))
+            importImagesFlag = true;
+
         if (cmd.hasOption(exportOption))
             outFileLocation = cmd.getOptionValue("export") + ".pptx";
         else
             outFileLocation = "output.pptx";
 
-        if (cmd.hasOption(dirOption))
-            dirLocation = cmd.getOptionValue(dirOption);
-        else
-            dirLocation = "./";
-
-        if (cmd.hasOption(runImportOption))
-            run = true;
-
-        if (!run) {
-            HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("pp-helper", options);
+        if (importImagesFlag) {
+            importImagesToNewPPT(outFileLocation, dirLocation);
             return;
         }
 
-        try (var ppt = new XMLSlideShow()) {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp("pp-helper", options);
+    }
 
-            File dir;
-            try (FileOutputStream outFile = new FileOutputStream(outFileLocation)) {
-                dir = new File(dirLocation);
-
+    private void importImagesToNewPPT(String outFileLocation, File dirLocation)
+            throws IOException {
+        try (FileOutputStream outFile = new FileOutputStream(outFileLocation)) {
+            try (var ppt = new XMLSlideShow()) {
                 Collection<File> files = FileUtils.listFiles(
-                        dir,
+                        dirLocation,
                         new RegexFileFilter("^(.*?)(.jpg|.png|.svg|.jpeg|.gif)"),
                         DirectoryFileFilter.DIRECTORY);
 
@@ -122,14 +130,13 @@ public class App implements CommandLineRunner {
                     var picture = slide.createPicture(pd);
                     var dimensions = slide.getSlideShow().getPageSize();
                     resizeToDimensions(picture, dimensions);
-                    System.out.println("Image imported: " + file);
+                    logger.info("Image imported: {}", file);
                 }
 
                 ppt.write(outFile);
-                // Exported file
-                System.out.println("Exported file: " + outFileLocation);
+                logger.info("Exported file: {}", outFileLocation);
             }
-        }
 
+        }
     }
 }
